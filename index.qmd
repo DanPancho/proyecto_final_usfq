@@ -48,5 +48,5 @@ Este nuevo dataset permite responder de forma directa la pregunta sobre costo, y
 
 El proyecto se divide en dos secciones principales:
 
-- [Limpieza y preparación de datos](data_cleaning.qmd)
-- [Análisis y visualizaciones](visualizations.qmd)
+- <a href="data_cleaning.html" target="_blank" rel="noopener noreferrer">Limpieza y preparación de datos</a>
+- <a href="visualizations.html" target="_blank" rel="noopener noreferrer">Análisis y visualizaciones</a>
