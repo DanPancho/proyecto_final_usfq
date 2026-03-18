@@ -1,0 +1,249 @@
+---
+title: "Análisis y Visualizaciones"
+author: "Daniel Arcos"
+format: html
+---
+
+# Propósito del análisis
+
+Este documento presenta el análisis principal del proyecto mediante visualizaciones. Cada sección parte de una pregunta específica, muestra un gráfico y ofrece una interpretación clara de los resultados para facilitar la comprensión del lector.
+
+# Preparación de la base para visualización
+
+```{python}
+import pandas as pd
+import altair as alt
+from pathlib import Path
+
+alt.data_transformers.disable_max_rows()
+
+clean_path = Path("data") / "df_clean.pkl"
+df = pd.read_pickle(clean_path)
+```
+
+En esta sección se reutiliza directamente la base `df_clean` generada en el documento de limpieza, con el fin de mantener consistencia entre ambas partes del proyecto.
+
+# 1. ¿En qué horas del día ocurren más viajes de taxi?
+
+Esta pregunta busca reconocer en qué momentos del día se concentra la mayor demanda del servicio. Identificar estas horas permite entender mejor los patrones cotidianos de movilidad urbana.
+
+```{python}
+hourly_trips = (
+    df.groupby("pickup_hour")
+    .size()
+    .reset_index(name="trip_count")
+)
+
+alt.Chart(hourly_trips).mark_bar(color="#2a9d8f").encode(
+    x=alt.X("pickup_hour:O", title="Hora del día"),
+    y=alt.Y("trip_count:Q", title="Número de viajes"),
+    tooltip=[
+        alt.Tooltip("pickup_hour:O", title="Hora"),
+        alt.Tooltip("trip_count:Q", title="Viajes", format=",")
+    ]
+).properties(
+    title="Cantidad de viajes por hora del día",
+    width=700,
+    height=400
+).interactive()
+```
+
+El gráfico permite observar las franjas horarias con mayor actividad. Los picos ayudan a identificar momentos de alta demanda, que suelen estar asociados a rutinas laborales, desplazamientos urbanos recurrentes o periodos de mayor circulación en la ciudad.
+
+En este caso, la mayor concentración de viajes ocurre en la noche. La hora con más registros es las **22:00**, con aproximadamente **555 mil viajes**, seguida muy de cerca por las **21:00**. También se observan valores altos entre las **14:00** y **17:00**, lo que sugiere dos ventanas fuertes de demanda: una en la tarde y otra más marcada durante la noche.
+
+# 2. ¿Qué días de la semana presentan mayor demanda?
+
+Aquí interesa comparar el número de viajes entre los diferentes días de la semana para identificar si el uso del taxi es más intenso en días laborales o durante el fin de semana.
+
+```{python}
+daily_trips = (
+    df.groupby("pickup_day_name", observed=False)
+    .size()
+    .reset_index(name="trip_count")
+)
+
+alt.Chart(daily_trips).mark_bar(color="#e76f51").encode(
+    x=alt.X(
+        "pickup_day_name:O",
+        title="Día de la semana",
+        sort=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    ),
+    y=alt.Y("trip_count:Q", title="Número de viajes"),
+    tooltip=[
+        alt.Tooltip("pickup_day_name:O", title="Día"),
+        alt.Tooltip("trip_count:Q", title="Viajes", format=",")
+    ]
+).properties(
+    title="Cantidad de viajes por día de la semana",
+    width=700,
+    height=400
+).interactive()
+```
+
+La comparación entre barras muestra qué días concentran más viajes. Esta visualización permite distinguir si el patrón de demanda está dominado por la actividad económica de la semana o por dinámicas diferentes en sábado y domingo.
+
+Los resultados muestran que **Thursday** es el día con mayor demanda, con cerca de **1.57 millones de viajes**, seguido por **Friday** con alrededor de **1.49 millones**. En contraste, **Saturday** presenta el menor volumen. Esto sugiere que el uso del taxi está más intensamente ligado a la actividad de los días laborables, con un pico particularmente fuerte al final de la semana laboral.
+
+# 3. ¿Cuál es la relación entre la distancia del viaje y el costo del mismo?
+
+La relación se presenta agrupando los viajes por rangos de distancia y comparando la distribución del costo total dentro de cada grupo.
+
+```{python}
+hist_df = df[df["trip_distance"] <= 30].copy()
+hist_df["distance_group"] = pd.cut(
+    hist_df["trip_distance"],
+    bins=[0, 2, 5, 10, 30],
+    labels=["0-2 km", "2-5 km", "5-10 km", "10-30 km"],
+    include_lowest=True
+)
+
+cost_bins = list(range(0, 105, 5))
+hist_df["cost_bin"] = pd.cut(
+    hist_df["total_amount"],
+    bins=cost_bins,
+    right=False,
+    include_lowest=True
+)
+
+hist_counts = (
+    hist_df.dropna(subset=["distance_group", "cost_bin"])
+    .groupby(["distance_group", "cost_bin"], observed=False)
+    .size()
+    .reset_index(name="frequency")
+)
+
+hist_counts["cost_bin_label"] = hist_counts["cost_bin"].astype(str)
+hist_counts["distance_group"] = hist_counts["distance_group"].astype(str)
+hist_counts = hist_counts.drop(columns=["cost_bin"])
+
+alt.Chart(hist_counts).mark_bar(opacity=0.6).encode(
+    x=alt.X(
+        "cost_bin_label:N",
+        title="Costo total"
+    ),
+    y=alt.Y("frequency:Q", title="Frecuencia"),
+    color=alt.Color("distance_group:N", title="Rango de distancia"),
+    tooltip=[
+        alt.Tooltip("distance_group:N", title="Rango"),
+        alt.Tooltip("cost_bin_label:N", title="Intervalo de costo"),
+        alt.Tooltip("frequency:Q", title="Frecuencia", format=",")
+    ]
+).properties(
+    title="Distribución del costo total según rango de distancia",
+    width=700,
+    height=400
+).interactive()
+```
+
+El histograma permite comparar cómo cambia la distribución del costo cuando la distancia del viaje aumenta. Si los grupos de mayor distancia se desplazan hacia montos más altos, eso refuerza la idea de una relación positiva entre distancia recorrida y costo total.
+
+En la visualización se aprecia justamente ese desplazamiento. Los viajes más cortos se concentran en costos bajos, mientras que los trayectos de mayor distancia aparecen con mayor frecuencia en rangos de costo más altos. La relación no es perfectamente lineal, pero sí muestra una asociación positiva clara entre distancia y costo total.
+
+Para complementar esta lectura, también es útil resumir el costo promedio según rangos de distancia.
+
+```{python}
+cost_summary = hist_df.groupby("distance_group", observed=False)["total_amount"].mean().reset_index()
+
+alt.Chart(cost_summary).mark_line(point=True, color="#457b9d", strokeWidth=3).encode(
+    x=alt.X(
+        "distance_group:N",
+        title="Rango de distancia",
+        sort=["0-2 km", "2-5 km", "5-10 km", "10-30 km"]
+    ),
+    y=alt.Y("total_amount:Q", title="Costo promedio"),
+    tooltip=[
+        alt.Tooltip("distance_group:N", title="Rango"),
+        alt.Tooltip("total_amount:Q", title="Costo promedio", format=".2f")
+    ]
+).properties(
+    title="Tendencia del costo promedio por rango de distancia",
+    width=700,
+    height=350
+).interactive()
+```
+
+Este gráfico adicional resume la tendencia central y facilita ver si el costo promedio aumenta de manera consistente conforme crece la distancia del viaje.
+
+El patrón promedio confirma la tendencia observada en el histograma. Los viajes de **0 a 2 km** tienen un costo promedio de aproximadamente **13.21**, los de **2 a 5 km** suben a **26.55**, los de **5 a 10 km** alcanzan **35.07** y los de **10 a 30 km** llegan a **56.34**. En otras palabras, conforme crece la distancia, el costo promedio aumenta de manera sostenida.
+
+# 4. ¿Cuánto duran en promedio los viajes de taxi?
+
+La duración promedio es un indicador útil para describir el comportamiento general del servicio. Como pediste un diagrama de dispersión, se muestra una muestra de viajes individuales junto con una línea horizontal que marca el promedio general.
+
+```{python}
+avg_duration = df["trip_duration_min"].mean()
+median_duration = df["trip_duration_min"].median()
+
+print(f"Duración promedio: {avg_duration:.2f} minutos")
+print(f"Duración mediana: {median_duration:.2f} minutos")
+```
+
+```{python}
+scatter_df = df.sample(min(5000, len(df)), random_state=42).copy()
+scatter_df = scatter_df.reset_index(drop=True)
+scatter_df["sample_order"] = scatter_df.index
+
+points = alt.Chart(scatter_df).mark_circle(
+    size=45,
+    opacity=0.25,
+    color="#f4a261"
+).encode(
+    x=alt.X("sample_order:Q", title="Observaciones de la muestra"),
+    y=alt.Y("trip_duration_min:Q", title="Duración del viaje (minutos)"),
+    tooltip=[
+        alt.Tooltip("trip_duration_min:Q", title="Duración", format=".2f"),
+        alt.Tooltip("trip_distance:Q", title="Distancia", format=".2f"),
+        alt.Tooltip("total_amount:Q", title="Costo", format=".2f")
+    ]
+)
+
+avg_rule = alt.Chart(
+    pd.DataFrame({"avg_duration": [avg_duration]})
+).mark_rule(
+    color="#d62828",
+    strokeDash=[8, 4],
+    size=2
+).encode(
+    y=alt.Y("avg_duration:Q")
+)
+
+(points + avg_rule).properties(
+    title=f"Diagrama de dispersión de la duración de viajes (promedio: {avg_duration:.2f} min)",
+    width=700,
+    height=400
+).interactive()
+```
+
+El diagrama de dispersión muestra la variabilidad de la duración entre viajes individuales y, al mismo tiempo, permite ubicar el promedio general con la línea horizontal. Esto ayuda a ver si la mayor parte de los trayectos se concentra cerca del promedio o si existe una dispersión amplia.
+
+La duración promedio de los viajes es de **32.59 minutos**, mientras que la mediana es de **30.75 minutos**. Como el promedio es ligeramente mayor que la mediana, se observa una asimetría moderada hacia viajes más largos. Además, la dispersión del gráfico indica que, aunque muchos viajes se agrupan cerca de la media, existe una variedad importante de trayectos con duraciones superiores.
+
+Para complementar la lectura del promedio, conviene observar también la distribución general de la duración de los viajes.
+
+```{python}
+duration_sample = df.sample(min(5000, len(df)), random_state=42)
+
+alt.Chart(duration_sample).mark_boxplot(color="#8d99ae", extent=1.5, size=60).encode(
+    y=alt.Y("trip_duration_min:Q", title="Duración del viaje (minutos)"),
+    tooltip=[
+        alt.Tooltip("trip_duration_min:Q", title="Duración", format=".2f")
+    ]
+).properties(
+    title="Distribución resumida de la duración de los viajes",
+    width=700,
+    height=350
+).interactive()
+```
+
+Este segundo gráfico ayuda a interpretar el promedio dentro del contexto de la dispersión, la mediana y los valores atípicos. Así es más fácil ver si la duración típica está cerca del promedio o si algunos viajes largos lo están empujando hacia arriba.
+
+El boxplot refuerza esta lectura. El 50% central de los viajes se ubica aproximadamente entre **23.78** y **39.13 minutos**, lo que muestra que la duración típica está relativamente concentrada. Sin embargo, la presencia de valores más altos explica por qué el promedio termina por encima de la mediana y confirma que algunos viajes largos empujan el tiempo promedio hacia arriba.
+
+# Cierre
+
+Los resultados muestran que la demanda del servicio de taxi en Nueva York no se distribuye de manera uniforme ni a lo largo del día ni entre los días de la semana. La mayor actividad se concentra en la noche, especialmente a las **22:00**, y el punto más alto de demanda semanal aparece en **Thursday**, seguido por **Friday**. Esto sugiere que el uso del taxi responde con fuerza tanto a dinámicas laborales como a una intensificación de movilidad al cierre de la semana.
+
+También se observa una relación clara entre las características del trayecto y su costo. A medida que aumenta la distancia del viaje, el costo promedio crece de forma sostenida, pasando de aproximadamente **13.21** en trayectos cortos de **0 a 2 km** hasta **56.34** en viajes de **10 a 30 km**. Esta tendencia confirma que la distancia es un factor central en la explicación del monto total pagado, aunque pueda verse influido además por propinas, peajes y recargos.
+
+En cuanto a la duración, los viajes presentan un tiempo promedio de **32.59 minutos** y una mediana de **30.75 minutos**, con la mitad central de los casos concentrada entre **23.78** y **39.13 minutos**. En conjunto, esto indica que la mayoría de los trayectos tiene una duración relativamente moderada, aunque existen viajes más largos que elevan el promedio general. En términos globales, el análisis permite concluir que el servicio de taxi refleja patrones temporales definidos, una relación positiva entre distancia y costo, y una duración de viaje que, aunque relativamente estable para la mayoría de casos, conserva una variabilidad importante.

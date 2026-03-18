@@ -1,0 +1,166 @@
+---
+title: "Limpieza y Preparación de Datos"
+author: "Daniel Arcos"
+format: html
+---
+
+# Propósito de esta sección
+
+En este documento se describe cómo se prepararon los datos antes del análisis visual. Dado que el archivo contiene millones de registros, se trabajó con un subconjunto de variables relevantes para las preguntas del proyecto, manteniendo el foco en tiempo, demanda, distancia, costo y duración del viaje.
+
+# Carga del dataset
+
+```{python}
+import pandas as pd
+from pathlib import Path
+
+data_path = Path("data") / "NYC.csv"
+
+usecols = [
+    "pickup_datetime",
+    "dropoff_datetime",
+    "passenger_count",
+    "trip_distance",
+    "rate_code",
+    "store_and_fwd_flag",
+    "payment_type",
+    "fare_amount",
+    "tip_amount",
+    "tolls_amount",
+    "total_amount",
+    "pickup_location_id",
+    "dropoff_location_id",
+]
+
+df = pd.read_csv(
+    data_path,
+    usecols=usecols,
+    parse_dates=["pickup_datetime", "dropoff_datetime"]
+)
+
+df.head()
+```
+
+# Exploración inicial del dataset
+
+```{python}
+df.shape
+```
+
+```{python}
+df.info()
+```
+
+```{python}
+df.describe().T
+```
+
+En esta fase se observa que el dataset contiene variables temporales, variables operativas del viaje y variables monetarias. Para este proyecto, `total_amount` se usará como la mejor aproximación al costo total pagado por el usuario.
+
+# Manejo de valores faltantes
+
+```{python}
+missing_summary = df.isna().sum().sort_values(ascending=False)
+missing_summary
+```
+
+```{python}
+missing_summary[missing_summary > 0]
+```
+
+La estrategia de limpieza es conservar únicamente registros completos en las variables esenciales para el análisis. Esto evita que faltantes en distancia, costo o fechas afecten la lectura de los resultados.
+
+```{python}
+essential_cols = [
+    "pickup_datetime",
+    "dropoff_datetime",
+    "passenger_count",
+    "trip_distance",
+    "total_amount",
+]
+
+df_clean = df.dropna(subset=essential_cols).copy()
+```
+
+# Transformaciones y creación de variables
+
+Se crean variables derivadas para responder mejor las preguntas analíticas:
+
+- `trip_duration_min`: duración del viaje en minutos
+- `pickup_hour`: hora del día del viaje
+- `pickup_day_name`: día de la semana
+
+```{python}
+df_clean["trip_duration_min"] = (
+    (df_clean["dropoff_datetime"] - df_clean["pickup_datetime"])
+    .dt.total_seconds()
+    / 60
+)
+
+df_clean["pickup_hour"] = df_clean["pickup_datetime"].dt.hour
+
+df_clean["pickup_day_name"] = pd.Categorical(
+    df_clean["pickup_datetime"].dt.day_name(),
+    categories=[
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+    ],
+    ordered=True
+)
+```
+
+# Filtrado o selección de datos
+
+La limpieza se enfoca en eliminar registros poco plausibles o claramente problemáticos para el análisis:
+
+1. Se eliminan viajes con `passenger_count <= 0`.
+2. Se eliminan viajes con `trip_distance <= 0`.
+3. Se eliminan viajes con `total_amount <= 0`.
+4. Se eliminan viajes con duración menor a 1 minuto o mayor a 180 minutos.
+
+```{python}
+df_clean = df_clean[df_clean["passenger_count"] > 0]
+df_clean = df_clean[df_clean["trip_distance"] > 0]
+df_clean = df_clean[df_clean["total_amount"] > 0]
+df_clean = df_clean[df_clean["trip_duration_min"].between(1, 180)]
+```
+
+# Revisión del resultado final
+
+```{python}
+pd.Series({
+    "filas_originales": len(df),
+    "filas_limpias": len(df_clean),
+    "filas_eliminadas": len(df) - len(df_clean),
+    "porcentaje_eliminado": round((len(df) - len(df_clean)) / len(df) * 100, 2)
+})
+```
+
+```{python}
+df_clean[[
+    "trip_distance",
+    "total_amount",
+    "trip_duration_min",
+    "pickup_hour",
+    "pickup_day_name"
+]].head()
+```
+
+```{python}
+clean_path = Path("data") / "df_clean.pkl"
+df_clean.to_pickle(clean_path)
+clean_path
+```
+
+La base limpia se guarda como `data/df_clean.pkl` para que el documento de visualizaciones reutilice exactamente el mismo `df_clean` y no repita el proceso de limpieza.
+
+# Justificación de las decisiones tomadas
+
+Las decisiones de preparación se tomaron para asegurar consistencia analítica:
+
+- Se seleccionaron solo las columnas necesarias para reducir carga computacional y concentrar el análisis.
+- Se eliminaron valores faltantes en variables esenciales porque impiden calcular o interpretar adecuadamente los indicadores.
+- Se filtraron distancias, costos y duraciones no positivas porque no representan viajes válidos.
+- Se acotó la duración entre 1 y 180 minutos para reducir el efecto de registros extremos o errores de captura.
+
+La tabla `df_clean` es la base utilizada en el documento de visualizaciones.

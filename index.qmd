@@ -1,0 +1,52 @@
+---
+title: "Proyecto Final: Análisis de Viajes de Taxi en NYC"
+author: "Daniel Arcos"
+format: html
+---
+
+# Introducción
+
+Este proyecto analiza patrones de movilidad urbana a partir de un dataset de viajes de taxi en la ciudad de Nueva York. El propósito es identificar comportamientos de demanda, explorar la relación entre la distancia recorrida y el costo del viaje, y describir cómo se distribuyen los tiempos de traslado.
+
+El análisis se apoya en registros reales de viajes, lo que permite construir una visión cuantitativa del servicio de taxis en distintos momentos del día y de la semana.
+
+# Contexto del problema
+
+La movilidad urbana es un componente central en el funcionamiento de las grandes ciudades. Entender cuándo se concentran los viajes, cómo varía la demanda y qué factores se relacionan con el costo del traslado puede aportar evidencia útil para estudiar patrones de transporte.
+
+En el caso de Nueva York, el servicio de taxi genera millones de registros que permiten observar el comportamiento de los viajes desde una perspectiva temporal y operativa.
+
+# Motivación del análisis
+
+La motivación del proyecto es transformar un volumen grande de datos en un análisis claro y comprensible para cualquier lector. Más allá de describir el dataset, el objetivo es responder preguntas específicas mediante una narrativa visual apoyada en una limpieza previa de los datos.
+
+También se busca mostrar el proceso completo: desde la preparación del dataset hasta la interpretación de los gráficos finales.
+
+# Preguntas principales
+
+Este proyecto busca responder las siguientes preguntas:
+
+1. ¿En qué horas del día ocurren más viajes de taxi?
+2. ¿Qué días de la semana presentan mayor demanda?
+3. ¿Cuál es la relación entre la distancia del viaje y el costo del mismo?
+4. ¿Cuánto duran en promedio los viajes de taxi?
+
+# Descripción del dataset
+
+Se utiliza un dataset de viajes de taxi en NYC almacenado en `data/NYC.csv`. El archivo contiene variables relevantes para el análisis, entre ellas:
+
+- fecha y hora de recogida y llegada
+- número de pasajeros
+- distancia del viaje
+- tipo de pago
+- tarifa y costo total
+- identificadores de ubicación de origen y destino
+
+Este nuevo dataset permite responder de forma directa la pregunta sobre costo, ya que incluye variables monetarias como `fare_amount` y `total_amount`.
+
+# Estructura del proyecto
+
+El proyecto se divide en dos secciones principales:
+
+- [Limpieza y preparación de datos](data_cleaning.qmd)
+- [Análisis y visualizaciones](visualizations.qmd)

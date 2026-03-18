@@ -1,0 +1,15 @@
+./venv
+__pycache__/
+*.pyc
+
+.env
+.Ds_Store
+.ipynb_checkpoints/
+
+_site/
+.quarto/
+./quarto/
+Microsoft/
+data/*.csv
+data/*.pkl
+*.ipynb
